@@ -2,6 +2,7 @@ import requests
 import codecs  # page have some u2018(') characters which can't be writ to file
 from time import sleep
 import os.path
+from collections import Counter
 
 from bs4 import BeautifulSoup
 from lxml import html
@@ -15,19 +16,47 @@ imdb_movies = []
 
 def main():
     global imdb_movies  # can be avoided, but inconvinient to work from console
-    # imdb_movies = imdb_parse_with_bs4(workfile_imdb)
     imdb_movies = imdb_parse_with_lxml(workfile_imdb)
+    # OR imdb_movies = imdb_parse_with_bs4(workfile_imdb)
 
     print_top(imdb_movies, 3)
     find_popular_years(imdb_movies, 5)
 
-    print '\n You can also print cast by typing "imdb_print_cast_with_bs4(qty)"'
-    # imdb_print_cast_with_bs4(3)
+    print '\nYou can also print cast by typing "imdb_get_cast_with_bs4(qty)"'
+    # imdb_get_cast_with_bs4(3)
+
+
+def imdb_parse_with_lxml(workfile_imdb):
+    if not os.path.isfile(workfile_imdb):
+        imdb_get_page(url_imdb_top250)
+        print 'New workfile was created.\n'
+    else:
+        print 'Previously created workfile is opened.\n'
+
+    doc = html.parse(workfile_imdb)
+    tbody = doc.find('.//tbody[@class="lister-list"]')
+    titleColumns = tbody.findall('.//td[@class="titleColumn"]')
+    movies = []
+    for titleColumn in titleColumns:
+        a = titleColumn.find('a')
+        title = a.text
+        link = a.attrib['href']
+        secondary_info = titleColumn.find('span[@class="secondaryInfo"]')
+        year = secondary_info.text
+        movies.append([title, year, link])
+    return movies
+
+
+def imdb_get_page(url):
+    header = {'Accept-Language': 'en'}  # wo it localized titles returned
+    page = requests.get(url, headers=header)
+    with codecs.open(workfile_imdb, encoding='utf-8', mode='w+') as f:
+        f.write(page.text)
 
 
 def imdb_parse_with_bs4(workfile_imdb):
     if not os.path.isfile(workfile_imdb):
-        imdb_get_page()
+        imdb_get_page(url_imdb_top250)
         print 'New workfile was created.\n'
     else:
         print 'Previously created workfile is opened.\n'
@@ -48,29 +77,6 @@ def imdb_parse_with_bs4(workfile_imdb):
     return movies
 
 
-def imdb_parse_with_lxml(workfile_imdb):
-    doc = html.parse(workfile_imdb)
-    tbody = doc.find('.//tbody[@class="lister-list"]')
-    titleColumns = tbody.findall('.//td[@class="titleColumn"]')
-    movies = []
-    for titleColumn in titleColumns:
-        a = titleColumn.find('a')
-        title = a.text
-        link = a.attrib['href']
-        secondary_info = titleColumn.find('span[@class="secondaryInfo"]')
-        year = secondary_info.text
-        movies.append([title, year, link])
-    return movies
-
-
-def imdb_get_page():
-    header = {'Accept-Language': 'en'}  # wo it localized titles returned
-    page = requests.get(url_imdb_top250, headers=header)
-    f = codecs.open(workfile_imdb, encoding='utf-8', mode='w+')
-    f.write(page.text)
-    f.close()
-
-
 def print_top(movies, qty):
     print '\n', 'Top %s movies:' % (qty)
     for rank in range(qty):
@@ -83,18 +89,13 @@ def find_popular_years(movies, qty):
     years_li = []
     for movie in movies:
         years_li.append(movie[1])
-    years_dict = {}
-    for year in years_li:
-        years_dict[year] = years_dict.get(year, 0) + 1
-    years_dict_sorted = sorted(years_dict.items(), key=lambda x: x[1])
-    years_dict_sorted.reverse()
-
+    most_common = Counter(years_li).most_common(qty)
     print '\n', '%d most popular years in top250:' % (qty)
-    for el in years_dict_sorted[:qty]:
-        print '\t', el[0].strip('()'), ' -- ', el[1]
+    for mc in most_common:
+        print '\t', mc[0].strip('()'), ' -- ', mc[1]
 
 
-def imdb_print_cast_with_bs4(qty):
+def imdb_get_cast_with_bs4(qty):
     for movie in imdb_movies[:qty]:
         print '\n', movie[0], movie[1]
         r = requests.get(url_imdb_base+movie[2])
