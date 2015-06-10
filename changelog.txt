@@ -4,5 +4,6 @@ v - get list from KP
 v - check if file exists instead of try/except
 w - combine imdb/kp 
 v - combine lxml/bs4
- - when open existing file (at the very beginning) print its date or even how old it is
- - currently for ru titles printout is invalid in kp lists
+
+ - on opening of existing file (at the very beginning) print its date or even how old it is
+ - for ru titles printout is invalid in kp lists
